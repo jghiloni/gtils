@@ -11,7 +11,7 @@ import (
 	"github.com/pivotalservices/gtils/command"
 	"github.com/pivotalservices/gtils/mock"
 	"github.com/pivotalservices/gtils/osutils"
-	. "github.com/jghiloni/gtils/persistence"
+	. "github.com/pivotalservices/gtils/persistence"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
