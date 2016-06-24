@@ -5,14 +5,15 @@ import "github.com/pivotalservices/gtils/command"
 //PgDump - an object which can handle pgres dumps
 type PgDump struct {
 	sshCfg    command.SshConfig
-	IP        string
-	Port      int
-	Database  string
-	Username  string
-	Password  string
-	DbFile    string
-	Caller    command.Executer
-	RemoteOps remoteOperationsInterface
+	IP                string
+	Port              int
+	Database          string
+	Username          string
+	Password          string
+	DbFile            string
+	RecreateOnRestore bool
+	Caller            command.Executer
+	RemoteOps         remoteOperationsInterface
 }
 
 //MysqlDump - an object which can handle mysql dumps

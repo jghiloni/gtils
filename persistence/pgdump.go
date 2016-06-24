@@ -10,14 +10,15 @@ import (
 )
 
 //NewPgDump - a pgdump object initialized for local fs
-func NewPgDump(ip string, port int, database, username, password string) *PgDump {
+func NewPgDump(ip string, port int, database, username, password string, recreate bool) *PgDump {
 	return &PgDump{
-		IP:       ip,
-		Port:     port,
-		Database: database,
-		Username: username,
-		Password: password,
-		Caller:   command.NewLocalExecuter(),
+		IP:                ip,
+		Port:              port,
+		Database:          database,
+		Username:          username,
+		Password:          password,
+		RecreateOnRestore: recreate,
+		Caller:            command.NewLocalExecuter(),
 	}
 }
 
@@ -29,14 +30,15 @@ func NewPgRemoteDumpWithPath(port int, database, username, password string, sshC
 		remoteOps.SetPath(remoteArchivePath)
 	}
 	return &PgDump{
-		sshCfg:    sshCfg,
-		IP:        "localhost",
-		Port:      port,
-		Database:  database,
-		Username:  sshCfg.Username,
-		Password:  sshCfg.Password,
-		Caller:    remoteExecuter,
-		RemoteOps: remoteOps,
+		sshCfg:            sshCfg,
+		IP:                "localhost",
+		Port:              port,
+		Database:          database,
+		Username:          sshCfg.Username,
+		Password:          sshCfg.Password,
+		RecreateOnRestore: false,
+		Caller:            remoteExecuter,
+		RemoteOps:         remoteOps,
 	}, err
 }
 
@@ -44,6 +46,27 @@ func NewPgRemoteDumpWithPath(port int, database, username, password string, sshC
 func NewPgRemoteDump(port int, database, username, password string, sshCfg command.SshConfig) (*PgDump, error) {
 	return NewPgRemoteDumpWithPath(port, database, username, password, sshCfg, "")
 }
+
+//NewPgRemoteDumpWithPathAndRecreate
+func NewPgRemoteDumpWithPathAndRecreate(port int, database, username, password string, sshCfg command.SshConfig, remoteArchivePath string) (*PgDump, error) {
+	remoteExecuter, err := command.NewRemoteExecutor(sshCfg)
+	remoteOps := osutils.NewRemoteOperations(sshCfg)
+	if len(remoteArchivePath) > 0 {
+		remoteOps.SetPath(remoteArchivePath)
+	}
+	return &PgDump{
+		sshCfg:            sshCfg,
+		IP:                "localhost",
+		Port:              port,
+		Database:          database,
+		Username:          sshCfg.Username,
+		Password:          sshCfg.Password,
+		RecreateOnRestore: true,
+		Caller:            remoteExecuter,
+		RemoteOps:         remoteOps,
+	}, err
+}
+
 
 //Import - allows us to import a pgdmp file in the form of a reader
 func (s *PgDump) Import(lfile io.Reader) (err error) {
@@ -83,15 +106,24 @@ func (s *PgDump) dumpConnectionDecorator(command string) string {
 }
 
 func (s *PgDump) restoreConnectionDecorator(command string) string {
-	return fmt.Sprintf("PGPASSWORD=%s %s -h %s -U %s -x -p %d -c -d %s %s",
+	createFlag := ""
+	if s.RecreateOnRestore {
+		createFlag = "-C"
+	}
+
+	cmd := fmt.Sprintf("PGPASSWORD=%s %s -h %s -U %s -x -p %d -c %s -d %s %s",
 		s.Password,
 		command,
 		s.IP,
 		s.Username,
 		s.Port,
+		createFlag,
 		s.Database,
 		s.RemoteOps.Path(),
 	)
+
+	lo.G.Debug("Command: ", cmd)
+	return cmd
 }
 
 func (s *PgDump) getRestoreCommand() string {
